@@ -1,0 +1,31 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Main executable for the cert-monitor gem
+# This script initializes and runs the SSL certificate monitoring service
+
+require 'cert_monitor'
+require 'logger'
+
+begin
+  # Load configuration
+  CertMonitor::Config.load
+
+  # Set up logging
+  logger = Logger.new($stdout)
+  logger.level = Logger.const_get(CertMonitor::Config.log_level.upcase)
+  logger.info 'Configuration loaded successfully'
+  logger.info "Will fetch domain list from Nacos: #{CertMonitor::Config.nacos_addr}"
+
+  # Start Nacos configuration listener
+  nacos_client = CertMonitor::NacosClient.new
+  nacos_client.start_listening
+
+  # Start Prometheus Exporter
+  logger.info "Starting monitoring service on port: #{CertMonitor::Config.port}"
+  CertMonitor::Exporter.run! host: '0.0.0.0', port: CertMonitor::Config.port
+rescue StandardError => e
+  puts "Startup failed: #{e.message}"
+  puts e.backtrace
+  exit 1
+end
