@@ -15,7 +15,7 @@ module CertMonitor
     def initialize
       @config = Config
       @logger = Logger.new($stdout)
-      @logger.level = Logger.const_get(@config.log_level.upcase)
+      @logger.level = Logger.const_get((@config.log_level || 'info').upcase)
       @last_md5 = nil
       @running = Concurrent::AtomicBoolean.new(false)
     end
@@ -29,12 +29,13 @@ module CertMonitor
 
       @logger.info 'Starting Nacos configuration listener'
       @logger.debug "Configuration details: dataId=#{@config.nacos_data_id}, group=#{@config.nacos_group}, namespace=#{@config.nacos_namespace}"
-      @logger.info "Polling interval: #{@config.nacos_poll_interval} seconds"
+      @logger.info "Initial polling interval: #{@config.nacos_poll_interval} seconds"
 
       Thread.new do
         while @running.true?
           begin
             check_config_update
+            # Use the potentially updated poll interval from Nacos config
             sleep @config.nacos_poll_interval
           rescue StandardError => e
             @logger.error "Nacos configuration error: #{e.message}"
@@ -80,9 +81,17 @@ module CertMonitor
               @logger.debug "Parsed YAML configuration: #{config_data.inspect}"
 
               if config_data.is_a?(Hash)
-                if @config.update_domains_config(config_data)
+                if @config.update_app_config(config_data)
                   @logger.info "Configuration updated at: #{Time.now}"
-                  @logger.debug "Current monitored domains: #{@config.domains.join(', ')}"
+                  @logger.debug "Current configuration: port=#{@config.port}, check_interval=#{@config.check_interval}s"
+                  @logger.debug "Monitored domains: #{@config.domains.join(', ')}"
+
+                  # Update logger level if it changed
+                  if config_data['settings'] && config_data['settings']['log_level']
+                    new_log_level = config_data['settings']['log_level'].upcase
+                    @logger.level = Logger.const_get(new_log_level)
+                    @logger.info "Log level updated to: #{new_log_level}"
+                  end
                 end
               else
                 @logger.error "Invalid configuration format: expected Hash, got #{config_data.class}"

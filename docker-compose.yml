@@ -1,12 +1,14 @@
-version: '3'
-
 services:
   cert-monitor:
     build: .
-    volumes:
-      - ./.env:/.env
     ports:
       - "9393:9393"
-    environment:
-      - RUBY_ENV=production
+    env_file:
+      - .env
     restart: unless-stopped
+    networks:
+      - cert-monitor-net
+
+networks:
+  cert-monitor-net:
+    driver: bridge

@@ -6,7 +6,7 @@ require 'logger'
 
 module CertMonitor
   # Configuration management class for cert-monitor
-  # Handles loading and validating configuration from environment variables and Nacos
+  # Handles loading and validating configuration from Nacos
   class Config
     class << self
       attr_accessor :nacos_addr, :nacos_namespace, :nacos_group, :nacos_data_id,
@@ -18,24 +18,36 @@ module CertMonitor
         # Set default values
         set_defaults
 
-        # Load .env file
+        # Load .env file for Nacos connection info only
         Dotenv.load
 
-        # Load configuration from environment variables
-        load_from_env
+        # Load essential Nacos connection info from environment
+        load_nacos_connection_config
 
-        validate_config
+        validate_nacos_config
       end
 
-      def update_domains_config(config_data)
+      def update_app_config(config_data)
         return false unless config_data.is_a?(Hash)
 
-        # Extract domain list and threshold from YAML configuration
+        # Update domains configuration
         @domains = Array(config_data['domains'] || [])
-        @threshold_days = config_data['threshold_days'] || @expire_warning_days
+
+        # Update settings configuration
+        settings = config_data['settings'] || {}
+
+        # Update application configuration from settings
+        @port = (settings['port'] || @port).to_i
+        @log_level = (settings['log_level'] || @log_level).to_s.downcase
+        @check_interval = (settings['check_interval'] || @check_interval).to_i
+        @connect_timeout = (settings['connect_timeout'] || @connect_timeout).to_i
+        @expire_warning_days = (settings['expire_warning_days'] || @expire_warning_days).to_i
+        @nacos_poll_interval = (settings['nacos_poll_interval'] || @nacos_poll_interval).to_i
+        @max_concurrent_checks = (settings['max_concurrent_checks'] || @max_concurrent_checks).to_i
+        @threshold_days = settings['threshold_days'] || @expire_warning_days
 
         # Validate configuration
-        validate_domains_config
+        validate_app_config
 
         true
       rescue StandardError => e
@@ -57,38 +69,25 @@ module CertMonitor
         @max_concurrent_checks = 50 # Default to 50 concurrent checks
       end
 
-      def load_from_env
-        # Nacos configuration
+      def load_nacos_connection_config
+        # Only load Nacos connection info from environment
         @nacos_addr = ENV['NACOS_ADDR']
         @nacos_namespace = ENV['NACOS_NAMESPACE']
         @nacos_group = ENV['NACOS_GROUP']
         @nacos_data_id = ENV['NACOS_DATA_ID']
-
-        # Application configuration
-        @port = (ENV['PORT'] || @port).to_i
-        @log_level = (ENV['LOG_LEVEL'] || @log_level).to_s.downcase
-
-        # Check configuration
-        @check_interval = (ENV['CHECK_INTERVAL'] || @check_interval).to_i
-        @connect_timeout = (ENV['CONNECT_TIMEOUT'] || @connect_timeout).to_i
-        @expire_warning_days = (ENV['EXPIRE_WARNING_DAYS'] || @expire_warning_days).to_i
-        @nacos_poll_interval = (ENV['NACOS_POLL_INTERVAL'] || @nacos_poll_interval).to_i
-        @max_concurrent_checks = (ENV['MAX_CONCURRENT_CHECKS'] || @max_concurrent_checks).to_i
       end
 
-      def validate_config
+      def validate_nacos_config
         raise 'NACOS_ADDR is required' if @nacos_addr.nil? || @nacos_addr.empty?
         raise 'NACOS_NAMESPACE is required' if @nacos_namespace.nil? || @nacos_namespace.empty?
         raise 'NACOS_GROUP is required' if @nacos_group.nil? || @nacos_group.empty?
         raise 'NACOS_DATA_ID is required' if @nacos_data_id.nil? || @nacos_data_id.empty?
-
-        # Validate log level
-        return if %w[debug info warn error fatal].include?(@log_level)
-
-        @log_level = 'info'
       end
 
-      def validate_domains_config
+      def validate_app_config
+        # Validate log level
+        @log_level = 'info' unless %w[debug info warn error fatal].include?(@log_level)
+
         # Validate domain list
         raise 'Domain list cannot be empty' if @domains.empty?
         raise 'Domain list must be an array' unless @domains.is_a?(Array)
@@ -98,8 +97,14 @@ module CertMonitor
           raise "Invalid domain format: #{domain}" unless domain.is_a?(String) && !domain.empty?
         end
 
-        # Validate threshold
-        raise 'Threshold days must be greater than 0' unless @threshold_days.to_i.positive?
+        # Validate numeric values
+        raise 'Port must be between 1 and 65535' unless (1..65_535).include?(@port)
+        raise 'Check interval must be positive' unless @check_interval.positive?
+        raise 'Connect timeout must be positive' unless @connect_timeout.positive?
+        raise 'Expire warning days must be positive' unless @expire_warning_days.positive?
+        raise 'Nacos poll interval must be positive' unless @nacos_poll_interval.positive?
+        raise 'Max concurrent checks must be positive' unless @max_concurrent_checks.positive?
+        raise 'Threshold days must be positive' unless @threshold_days.positive?
       end
 
       def logger

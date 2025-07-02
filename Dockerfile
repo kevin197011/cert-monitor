@@ -2,24 +2,25 @@ FROM ruby:3.2-alpine
 
 WORKDIR /app
 
-# 安装构建依赖
+# Install build dependencies
 RUN apk add --no-cache build-base
 
-# 复制Gemfile和gemspec
-COPY cert-monitor.gemspec .
-COPY lib/cert_monitor/version.rb lib/cert_monitor/version.rb
+# Copy all gem files
+COPY Gemfile Gemfile.lock ./
+COPY cert-monitor.gemspec ./
+COPY lib lib/
+COPY bin bin/
+COPY README.md ./
 
-# 安装依赖
-RUN bundle install
+# Install dependencies and build the gem
+RUN gem build cert-monitor.gemspec && \
+    gem install ./cert-monitor-*.gem
 
-# 复制应用代码
-COPY . .
-
-# 设置可执行权限
+# Set executable permissions
 RUN chmod +x bin/cert-monitor
 
-# 暴露端口
+# Expose port
 EXPOSE 9393
 
-# 启动应用
-CMD ["bin/cert-monitor"]
+# Start application
+CMD ["cert-monitor"]

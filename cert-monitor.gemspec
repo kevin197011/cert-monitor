@@ -25,10 +25,11 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'concurrent-ruby', '~> 1.1'
   spec.add_dependency 'dotenv', '~> 2.8'
   spec.add_dependency 'prometheus-client', '~> 4.2'
+  spec.add_dependency 'puma', '~> 6.0'
+  spec.add_dependency 'rake', '~> 13.0'
   spec.add_dependency 'sinatra', '~> 2.2'
 
   # Development dependencies
   spec.add_development_dependency 'bundler', '~> 2.0'
-  spec.add_development_dependency 'rake', '~> 13.0'
   spec.add_development_dependency 'rspec', '~> 3.0'
 end

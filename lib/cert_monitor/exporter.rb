@@ -5,49 +5,46 @@ require 'prometheus/client'
 require 'prometheus/client/formats/text'
 
 module CertMonitor
+  # Prometheus metrics exporter
   class Exporter < Sinatra::Base
-    def initialize
-      super
-      @registry = Prometheus::Client.registry
-      @checker = Checker.new
+    # 设置 Puma 作为服务器
+    set :server, :puma
+    # 监听所有地址
+    set :bind, '0.0.0.0'
+    # 设置环境为生产环境
+    set :environment, :production
 
-      # Define metrics
-      @cert_expire_days = Prometheus::Client::Gauge.new(
-        :cert_expire_days,
-        docstring: 'Number of days until SSL certificate expires',
-        labels: [:domain]
-      )
-      @cert_status = Prometheus::Client::Gauge.new(
-        :cert_status,
-        docstring: 'SSL certificate check status (1=valid, 0=invalid)',
-        labels: [:domain]
-      )
+    # 创建注册表
+    prometheus = Prometheus::Client.registry
 
-      @registry.register(@cert_expire_days)
-      @registry.register(@cert_status)
+    # 定义指标
+    EXPIRE_DAYS = Prometheus::Client::Gauge.new(:cert_expire_days, docstring: 'Days until certificate expires',
+                                                                   labels: [:domain])
+    CERT_STATUS = Prometheus::Client::Gauge.new(:cert_status, docstring: 'Certificate check status', labels: [:domain])
+
+    # 注册指标
+    prometheus.register(EXPIRE_DAYS)
+    prometheus.register(CERT_STATUS)
+
+    # 健康检查端点
+    get '/health' do
+      'OK'
     end
 
+    # 指标导出端点
     get '/metrics' do
       content_type 'text/plain; version=0.0.4'
-
-      # Update metrics
-      update_metrics
-
-      # Return all metrics
-      Prometheus::Client::Formats::Text.marshal(@registry)
+      Prometheus::Client::Formats::Text.marshal(prometheus)
     end
 
-    private
+    # 更新证书状态指标
+    def self.update_cert_status(domain, status)
+      CERT_STATUS.set(status ? 1 : 0, labels: { domain: domain })
+    end
 
-    def update_metrics
-      @checker.check_all_domains.each do |result|
-        if result[:status] == :ok
-          @cert_expire_days.set(result[:expire_days], labels: { domain: result[:domain] })
-          @cert_status.set(1, labels: { domain: result[:domain] })
-        else
-          @cert_status.set(0, labels: { domain: result[:domain] })
-        end
-      end
+    # 更新证书过期天数指标
+    def self.update_expire_days(domain, days)
+      EXPIRE_DAYS.set(days, labels: { domain: domain })
     end
   end
 end

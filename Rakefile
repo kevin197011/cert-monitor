@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'time'
+require 'bundler/gem_tasks'
+require 'rspec/core/rake_task'
 
 task default: %w[push]
 
@@ -17,3 +19,13 @@ task :push do
   system 'git pull'
   system 'git push origin main'
 end
+
+task :docker do
+  system 'export COMPOSE_BAKE=true'
+  system 'docker compose up --build -d'
+  system 'docker compose logs -f'
+end
+
+RSpec::Core::RakeTask.new(:spec)
+
+task default: :spec

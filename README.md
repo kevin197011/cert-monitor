@@ -10,7 +10,7 @@ A Ruby-based online domain certificate monitoring tool that supports fetching do
 - Hot configuration reload support
 - Docker containerization support
 - Detailed logging
-- Flexible configuration options
+- Centralized configuration management via Nacos
 
 ## Quick Start
 
@@ -31,7 +31,7 @@ gem install cert-monitor-0.1.0.gem
 3. Configure environment variables:
 ```bash
 cp env.template .env
-# Edit .env file with your configuration
+# Edit .env file with your Nacos connection information
 ```
 
 4. Run the service:
@@ -55,28 +55,52 @@ docker compose up -d
 
 ### Environment Variables
 
+Only Nacos connection information is required in environment variables:
+
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | NACOS_ADDR | Nacos server address | http://localhost:8848 | Yes |
 | NACOS_NAMESPACE | Nacos namespace | devops | Yes |
 | NACOS_GROUP | Nacos configuration group | DEFAULT_GROUP | Yes |
 | NACOS_DATA_ID | Nacos configuration ID | cert_domains | Yes |
-| PORT | Service listen port | 9393 | No |
-| LOG_LEVEL | Log level | info | No |
-| CHECK_INTERVAL | Check interval in seconds | 60 | No |
-| CONNECT_TIMEOUT | Connection timeout in seconds | 10 | No |
-| EXPIRE_WARNING_DAYS | Certificate expiration warning threshold in days | 30 | No |
-| NACOS_POLL_INTERVAL | Nacos configuration polling interval in seconds | 30 | No |
-| MAX_CONCURRENT_CHECKS | Maximum number of concurrent domain checks | 50 | No |
 
 ### Nacos Configuration Format
 
+All application settings are managed in Nacos using the following YAML format:
+
 ```yaml
+# Domain list to monitor
 domains:
   - example.com
   - example.org
-threshold_days: 30
+
+# Application settings
+settings:
+  port: 9393                  # Service listen port
+  log_level: info            # Log level (debug/info/warn/error/fatal)
+  check_interval: 60         # Certificate check interval in seconds
+  connect_timeout: 10        # Connection timeout in seconds
+  expire_warning_days: 30    # Certificate expiration warning threshold in days
+  max_concurrent_checks: 50  # Maximum number of concurrent domain checks
+  nacos_poll_interval: 30    # Nacos configuration polling interval in seconds
+  threshold_days: 30         # Certificate expiration threshold in days
 ```
+
+#### Configuration Parameters
+
+| Parameter | Description | Default | Notes |
+|-----------|-------------|---------|-------|
+| domains | List of domains to monitor | [] | Required, cannot be empty |
+| settings.port | Service listen port | 9393 | Must be between 1-65535 |
+| settings.log_level | Log level | info | One of: debug, info, warn, error, fatal |
+| settings.check_interval | Check interval in seconds | 60 | Must be positive |
+| settings.connect_timeout | Connection timeout in seconds | 10 | Must be positive |
+| settings.expire_warning_days | Warning threshold in days | 30 | Must be positive |
+| settings.max_concurrent_checks | Max concurrent checks | 50 | Must be positive |
+| settings.nacos_poll_interval | Nacos polling interval in seconds | 30 | Must be positive |
+| settings.threshold_days | Certificate expiration threshold | 30 | Must be positive |
+
+All configuration changes in Nacos are automatically detected and applied without service restart.
 
 ## Metrics
 
@@ -162,18 +186,28 @@ bundle exec bin/cert-monitor
 - Check if NACOS_ADDR configuration is correct
 - Verify if Nacos server is running
 - Check network connectivity and firewall settings
+- Verify Nacos namespace and group settings
 
-### 2. Certificate Check Failed
+### 2. Configuration Not Updating
+
+- Check Nacos configuration format matches the required YAML structure
+- Verify if nacos_poll_interval is set appropriately
+- Check application logs for configuration parsing errors
+- Ensure all required fields are present in Nacos configuration
+
+### 3. Certificate Check Failed
 
 - Verify if domain is accessible
 - Check if domain has SSL certificate configured
 - Review detailed error logs
+- Verify connect_timeout setting is appropriate for your network
 
-### 3. Metrics Not Updating
+### 4. Metrics Not Updating
 
-- Check CHECK_INTERVAL configuration
+- Check check_interval configuration
 - Verify if Prometheus is correctly configured
 - Review application logs for errors
+- Check if max_concurrent_checks is set appropriately
 
 ## Contributing
 
