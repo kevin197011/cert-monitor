@@ -2,7 +2,6 @@
 
 require 'net/http'
 require 'concurrent'
-require 'logger'
 require 'digest'
 require 'uri'
 require 'json'
@@ -14,8 +13,7 @@ module CertMonitor
   class NacosClient
     def initialize
       @config = Config
-      @logger = LoggerFactory.create_logger('Nacos')
-      @logger.level = Logger.const_get((@config.log_level || 'info').upcase)
+      @logger = Logger.create('Nacos')
       @last_md5 = nil
       @running = Concurrent::AtomicBoolean.new(false)
     end
@@ -89,7 +87,7 @@ module CertMonitor
                   # Update logger level if it changed
                   if config_data['settings'] && config_data['settings']['log_level']
                     new_log_level = config_data['settings']['log_level'].upcase
-                    @logger.level = Logger.const_get(new_log_level)
+                    Logger.update_all_level(::Logger.const_get(new_log_level))
                     @logger.info "Log level updated to: #{new_log_level}"
                     @logger.debug "Current metrics port: #{@config.metrics_port}"
                   end

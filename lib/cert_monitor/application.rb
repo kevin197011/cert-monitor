@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-require 'logger'
 require 'concurrent'
-require_relative 'logger_formatter'
 
 module CertMonitor
   # Main application class that handles initialization and startup
@@ -10,8 +8,8 @@ module CertMonitor
     attr_reader :logger, :nacos_client, :checker
 
     def initialize
-      @logger = LoggerFactory.create_logger('System')
-      @logger.level = Logger::INFO # 初始设置为 INFO，后续从配置更新
+      @logger = Logger.create('System')
+      @logger.level = ::Logger::INFO # 初始设置为 INFO，后续从配置更新
     end
 
     def start
@@ -48,7 +46,7 @@ module CertMonitor
       logger.debug 'Setting up logger...'
       # 从配置中读取日志级别
       log_level = (Config.log_level || 'info').upcase
-      @logger.level = Logger.const_get(log_level)
+      Logger.update_all_level(::Logger.const_get(log_level))
 
       # 输出当前配置
       logger.info 'Current configuration:'

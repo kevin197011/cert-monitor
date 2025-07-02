@@ -8,8 +8,7 @@ module CertMonitor
   # Handles SSL certificate checking and expiry calculation
   class CertClient
     def initialize
-      @logger = LoggerFactory.create_logger('Cert')
-      @logger.level = Logger.const_get((Config.log_level || 'info').upcase)
+      @logger = Logger.create('Cert')
     end
 
     # Check SSL certificate for a single domain

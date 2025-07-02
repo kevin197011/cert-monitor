@@ -8,8 +8,7 @@ module CertMonitor
   class Checker
     def initialize
       @config = Config
-      @logger = LoggerFactory.create_logger('Checker')
-      @logger.level = Logger.const_get((@config.log_level || 'info').upcase)
+      @logger = Logger.create('Checker')
       @semaphore = Concurrent::Semaphore.new(@config.max_concurrent_checks || 50)
       @cert_client = CertClient.new
     end
