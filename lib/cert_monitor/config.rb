@@ -10,7 +10,7 @@ module CertMonitor
   class Config
     class << self
       attr_accessor :nacos_addr, :nacos_namespace, :nacos_group, :nacos_data_id,
-                    :domains, :threshold_days, :port, :log_level,
+                    :domains, :threshold_days, :metrics_port, :log_level,
                     :check_interval, :connect_timeout, :expire_warning_days,
                     :nacos_poll_interval, :max_concurrent_checks
 
@@ -37,7 +37,7 @@ module CertMonitor
         settings = config_data['settings'] || {}
 
         # Update application configuration from settings
-        @port = (settings['port'] || @port).to_i
+        @metrics_port = (settings['metrics_port'] || @metrics_port).to_i
         @log_level = (settings['log_level'] || @log_level).to_s.downcase
         @check_interval = (settings['check_interval'] || @check_interval).to_i
         @connect_timeout = (settings['connect_timeout'] || @connect_timeout).to_i
@@ -59,7 +59,7 @@ module CertMonitor
 
       def set_defaults
         @log_level = 'info'
-        @port = 9393
+        @metrics_port = 9393
         @check_interval = 60 # Default to 60 seconds for SSL check interval
         @connect_timeout = 10
         @expire_warning_days = 30
@@ -98,7 +98,7 @@ module CertMonitor
         end
 
         # Validate numeric values
-        raise 'Port must be between 1 and 65535' unless (1..65_535).include?(@port)
+        raise 'Metrics port must be between 1 and 65535' unless (1..65_535).include?(@metrics_port)
         raise 'Check interval must be positive' unless @check_interval.positive?
         raise 'Connect timeout must be positive' unless @connect_timeout.positive?
         raise 'Expire warning days must be positive' unless @expire_warning_days.positive?

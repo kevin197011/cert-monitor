@@ -2,9 +2,11 @@ services:
   cert-monitor:
     build: .
     ports:
-      - "9393:9393"
+      - "9393:9393"  # metrics port
     env_file:
       - .env
+    environment:
+      - RUBY_ENV=production
     restart: unless-stopped
     networks:
       - cert-monitor-net

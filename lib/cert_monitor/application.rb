@@ -96,8 +96,8 @@ module CertMonitor
 
     def start_exporter
       logger.debug 'Starting metrics exporter...'
-      logger.info "Starting monitoring service on port: #{Config.port}"
-      Exporter.run! host: '0.0.0.0', port: Config.port
+      logger.info "Starting monitoring service on port: #{Config.metrics_port}"
+      Exporter.run! host: '0.0.0.0', port: Config.metrics_port
     end
   end
 end

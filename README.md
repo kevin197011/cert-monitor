@@ -9,7 +9,7 @@ A Ruby-based online domain certificate monitoring tool that supports fetching do
 - Prometheus format metrics export
 - Hot configuration reload support
 - Docker containerization support
-- Detailed logging
+- Detailed logging with configurable levels
 - Centralized configuration management via Nacos
 
 ## Quick Start
@@ -76,14 +76,14 @@ domains:
 
 # Application settings
 settings:
-  port: 9393                  # Service listen port
-  log_level: info            # Log level (debug/info/warn/error/fatal)
-  check_interval: 60         # Certificate check interval in seconds
-  connect_timeout: 10        # Connection timeout in seconds
-  expire_warning_days: 30    # Certificate expiration warning threshold in days
-  max_concurrent_checks: 50  # Maximum number of concurrent domain checks
-  nacos_poll_interval: 30    # Nacos configuration polling interval in seconds
-  threshold_days: 30         # Certificate expiration threshold in days
+  metrics_port: 9393            # Service metrics port (1-65535)
+  log_level: info               # Log level (debug/info/warn/error/fatal)
+  check_interval: 60            # Certificate check interval in seconds
+  connect_timeout: 10           # Connection timeout in seconds
+  expire_warning_days: 30       # Certificate expiration warning threshold in days
+  max_concurrent_checks: 50     # Maximum number of concurrent domain checks
+  nacos_poll_interval: 30       # Nacos configuration polling interval in seconds
+  threshold_days: 30            # Certificate expiration threshold in days
 ```
 
 #### Configuration Parameters
@@ -91,7 +91,7 @@ settings:
 | Parameter | Description | Default | Notes |
 |-----------|-------------|---------|-------|
 | domains | List of domains to monitor | [] | Required, cannot be empty |
-| settings.port | Service listen port | 9393 | Must be between 1-65535 |
+| settings.metrics_port | Service metrics port | 9393 | Must be between 1-65535 |
 | settings.log_level | Log level | info | One of: debug, info, warn, error, fatal |
 | settings.check_interval | Check interval in seconds | 60 | Must be positive |
 | settings.connect_timeout | Connection timeout in seconds | 10 | Must be positive |
