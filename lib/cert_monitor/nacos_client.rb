@@ -14,7 +14,7 @@ module CertMonitor
   class NacosClient
     def initialize
       @config = Config
-      @logger = Logger.new($stdout)
+      @logger = LoggerFactory.create_logger('Nacos')
       @logger.level = Logger.const_get((@config.log_level || 'info').upcase)
       @last_md5 = nil
       @running = Concurrent::AtomicBoolean.new(false)
@@ -27,7 +27,7 @@ module CertMonitor
 
       @running.make_true
 
-      @logger.info 'Starting Nacos configuration listener'
+      @logger.info 'Starting Nacos config listener...'
       @logger.debug "Configuration details: dataId=#{@config.nacos_data_id}, group=#{@config.nacos_group}, namespace=#{@config.nacos_namespace}"
       @logger.info "Initial polling interval: #{@config.nacos_poll_interval} seconds"
 
@@ -38,8 +38,8 @@ module CertMonitor
             # Use the potentially updated poll interval from Nacos config
             sleep @config.nacos_poll_interval
           rescue StandardError => e
-            @logger.error "Nacos configuration error: #{e.message}"
-            @logger.error e.backtrace.join("\n")
+            @logger.error "Configuration update error: #{e.message}"
+            @logger.debug e.backtrace.join("\n")
             sleep [@config.nacos_poll_interval, 10].max # Use max of poll interval or 10 seconds on error
           end
         end
@@ -49,7 +49,7 @@ module CertMonitor
     # Stop listening for configuration changes
     def stop_listening
       @running.make_false
-      @logger.info 'Stopped Nacos configuration listener'
+      @logger.info 'Nacos config listener stopped'
     end
 
     private
@@ -78,12 +78,12 @@ module CertMonitor
             @last_md5 = current_md5
             begin
               config_data = YAML.safe_load(yaml_content)
-              @logger.debug "Parsed YAML configuration: #{config_data.inspect}"
+              @logger.debug "Received configuration update: #{config_data.inspect}"
 
               if config_data.is_a?(Hash)
                 if @config.update_app_config(config_data)
-                  @logger.info "Configuration updated at: #{Time.now}"
-                  @logger.debug "Current configuration: port=#{@config.port}, check_interval=#{@config.check_interval}s"
+                  @logger.info 'Configuration updated successfully'
+                  @logger.debug "Current configuration: metrics_port=#{@config.metrics_port}, check_interval=#{@config.check_interval}s"
                   @logger.debug "Monitored domains: #{@config.domains.join(', ')}"
 
                   # Update logger level if it changed
@@ -91,6 +91,7 @@ module CertMonitor
                     new_log_level = config_data['settings']['log_level'].upcase
                     @logger.level = Logger.const_get(new_log_level)
                     @logger.info "Log level updated to: #{new_log_level}"
+                    @logger.debug "Current metrics port: #{@config.metrics_port}"
                   end
                 end
               else
@@ -105,11 +106,11 @@ module CertMonitor
           end
         else
           error_msg = json_response['message'] || 'Unknown error'
-          @logger.error "Failed to fetch Nacos configuration: #{error_msg}"
+          @logger.error "Failed to fetch configuration: #{error_msg}"
           raise "Failed to fetch configuration: #{error_msg}"
         end
       else
-        @logger.error "Failed to fetch Nacos configuration: #{response.code} #{response.message}"
+        @logger.error "Failed to fetch configuration: HTTP #{response.code}"
         raise "Failed to fetch configuration: HTTP #{response.code}"
       end
     end

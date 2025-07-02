@@ -5,6 +5,8 @@
 
 require 'cert_monitor/version'
 require 'cert_monitor/config'
+require 'cert_monitor/logger_formatter'
+require 'cert_monitor/cert_client'
 require 'cert_monitor/checker'
 require 'cert_monitor/exporter'
 require 'cert_monitor/nacos_client'

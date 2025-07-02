@@ -2,6 +2,7 @@
 
 require 'logger'
 require 'concurrent'
+require_relative 'logger_formatter'
 
 module CertMonitor
   # Main application class that handles initialization and startup
@@ -9,7 +10,7 @@ module CertMonitor
     attr_reader :logger, :nacos_client, :checker
 
     def initialize
-      @logger = Logger.new($stdout)
+      @logger = LoggerFactory.create_logger('System')
       @logger.level = Logger::INFO # 初始设置为 INFO，后续从配置更新
     end
 
@@ -21,7 +22,7 @@ module CertMonitor
       start_nacos_client
 
       # 首次同步检查
-      logger.info 'Performing initial certificate check...'
+      logger.info 'Starting domain checker...'
       @checker.check_all_domains
 
       # 启动异步检查线程
@@ -48,9 +49,16 @@ module CertMonitor
       # 从配置中读取日志级别
       log_level = (Config.log_level || 'info').upcase
       @logger.level = Logger.const_get(log_level)
-      logger.info 'Configuration loaded successfully'
-      logger.info "Will fetch domain list from Nacos: #{Config.nacos_addr}"
-      logger.info "Log level set to: #{log_level}"
+
+      # 输出当前配置
+      logger.info 'Current configuration:'
+      logger.info "- Domains: #{Config.domains.join(', ')}"
+      logger.info "- Check interval: #{Config.check_interval}s"
+      logger.info "- Connect timeout: #{Config.connect_timeout}s"
+      logger.info "- Expire threshold days: #{Config.threshold_days}"
+      logger.info "- Max concurrent checks: #{Config.max_concurrent_checks}"
+      logger.info "- Metrics port: #{Config.metrics_port}"
+      logger.info "- Log level: #{Config.log_level}"
     end
 
     def setup_components
@@ -60,25 +68,25 @@ module CertMonitor
     end
 
     def start_nacos_client
-      logger.debug 'Starting Nacos client...'
+      logger.info 'Starting Nacos config listener...'
       @nacos_client = NacosClient.new
       @nacos_client.start_listening
-      logger.debug 'Nacos client started'
     end
 
     def start_checker_thread
-      logger.debug 'Starting checker thread...'
+      logger.info 'Waiting 60 seconds before first check...'
       Thread.new do
         # 等待一个检查周期后开始异步检查
         sleep Config.check_interval
 
         loop do
-          logger.debug 'Running certificate check cycle...'
+          logger.info "Checking #{Config.domains.length} domains..."
           # 使用 Promise 进行异步检查
           Concurrent::Promise.execute do
             @checker.check_all_domains
-          end.on_success do |_|
-            logger.debug 'Certificate check cycle completed successfully'
+          end.on_success do |results|
+            successful_checks = results.count { |r| r[:status] == :ok }
+            logger.info "Domain check completed: #{successful_checks}/#{results.length} successful"
           end.on_error do |error|
             logger.error "Certificate check cycle failed: #{error.message}"
             logger.error error.backtrace.join("\n")
@@ -96,8 +104,9 @@ module CertMonitor
 
     def start_exporter
       logger.debug 'Starting metrics exporter...'
-      logger.info "Starting monitoring service on port: #{Config.metrics_port}"
-      Exporter.run! host: '0.0.0.0', port: Config.metrics_port
+      # 设置 Sinatra 服务器选项
+      Exporter.set :port, Config.metrics_port
+      Exporter.run! host: '0.0.0.0'
     end
   end
 end
