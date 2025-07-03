@@ -1,0 +1,17 @@
+apiVersion: v2
+name: cert-monitor
+description: A Helm chart for SSL certificate monitoring application
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/kevin197011/cert-monitor
+sources:
+  - https://github.com/kevin197011/cert-monitor
+maintainers:
+  - name: DevOps Team
+    email: kevin197011@outlook.com
+keywords:
+  - ssl
+  - certificate
+  - monitoring
+  - prometheus

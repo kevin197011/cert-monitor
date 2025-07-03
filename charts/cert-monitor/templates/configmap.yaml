@@ -1,0 +1,42 @@
+{{- if and .Values.certificates.local.enabled .Values.certificates.local.storage.configMap.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.certificates.local.storage.configMap.name }}
+  labels:
+    {{- include "cert-monitor.labels" . | nindent 4 }}
+data:
+  # 将 certs/ssl 目录下的证书文件作为 ConfigMap 数据
+  # 注意：这需要在部署时手动添加证书文件内容
+  # 示例：
+  # devops.com.crt: |
+  #   -----BEGIN CERTIFICATE-----
+  #   [证书内容]
+  #   -----END CERTIFICATE-----
+  #
+  # 或者可以通过 kubectl 命令创建：
+  # kubectl create configmap cert-monitor-certs --from-file=certs/ssl/
+  README.md: |
+    # SSL Certificates
+
+    This ConfigMap contains SSL certificates for monitoring.
+
+    ## Adding Certificates
+
+    To add certificates to this ConfigMap:
+
+    1. Using kubectl:
+    ```bash
+    kubectl create configmap {{ .Values.certificates.local.storage.configMap.name }} \
+      --from-file=certs/ssl/ \
+      --dry-run=client -o yaml | kubectl apply -f -
+    ```
+
+    2. Or add them manually to this ConfigMap and update it.
+
+    ## Supported File Extensions
+    - .crt
+    - .pem
+    - .cert
+    - .cer
+{{- end }}

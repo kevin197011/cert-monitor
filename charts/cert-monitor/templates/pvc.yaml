@@ -1,0 +1,17 @@
+{{- if and .Values.certificates.local.enabled .Values.certificates.local.storage.persistentVolume.enabled (not .Values.certificates.local.storage.persistentVolume.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cert-monitor.fullname" . }}-certs
+  labels:
+    {{- include "cert-monitor.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadOnlyMany
+  resources:
+    requests:
+      storage: {{ .Values.certificates.local.storage.persistentVolume.size }}
+  {{- if .Values.certificates.local.storage.persistentVolume.storageClass }}
+  storageClassName: {{ .Values.certificates.local.storage.persistentVolume.storageClass }}
+  {{- end }}
+{{- end }}

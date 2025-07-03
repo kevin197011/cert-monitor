@@ -1,0 +1,195 @@
+# Production values for cert-monitor
+# 生产环境配置示例
+
+# 副本数量
+replicaCount: 3
+
+# 镜像配置
+image:
+  repository: your-registry.com/cert-monitor
+  pullPolicy: Always
+  tag: "v1.0.0"
+
+# 镜像拉取密钥
+imagePullSecrets:
+  - name: registry-secret
+
+# 服务配置
+service:
+  type: ClusterIP
+  port: 9393
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9393"
+    prometheus.io/path: "/metrics"
+
+# Istio 配置
+istio:
+  enabled: true
+  gateway:
+    enabled: true
+    hosts:
+      - cert-monitor.yourdomain.com
+    tls:
+      mode: SIMPLE
+      credentialName: cert-monitor-tls
+  virtualService:
+    enabled: true
+    hosts:
+      - cert-monitor.yourdomain.com
+    gateways:
+      - cert-monitor-gateway
+
+# 证书存储配置（生产环境使用 Secret）
+certificates:
+  local:
+    enabled: true
+    storage:
+      configMap:
+        enabled: false
+      secret:
+        enabled: true
+        name: cert-monitor-certs-secret
+      persistentVolume:
+        enabled: false
+
+# 应用配置
+config:
+  nacos:
+    addr: "http://nacos.nacos:8848"
+    namespace: "production"
+    group: "CERT_MONITOR"
+    dataId: "cert-monitor-prod.yml"
+
+  logLevel: "warn"
+  metricsPort: 9393
+  checkInterval: 300  # 5分钟检查一次
+
+# 资源配置
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# 自动扩缩容
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# 安全配置
+podSecurityContext:
+  fsGroup: 2000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Pod 反亲和性
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - cert-monitor
+        topologyKey: kubernetes.io/hostname
+
+# 容忍度
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "monitoring"
+    effect: "NoSchedule"
+
+# 节点选择器
+nodeSelector:
+  monitoring: "true"
+
+# Pod 注解
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9393"
+  prometheus.io/path: "/metrics"
+  sidecar.istio.io/inject: "true"
+
+# 监控配置
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 60s
+    scrapeTimeout: 30s
+    labels:
+      team: platform
+      environment: production
+    annotations:
+      meta.helm.sh/release-name: cert-monitor
+
+  prometheusRule:
+    enabled: true
+    labels:
+      team: platform
+      environment: production
+    rules:
+      - alert: CertificateExpiringSoon
+        expr: cert_expire_days < 30
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          environment: production
+        annotations:
+          summary: "Certificate expiring soon"
+          description: "Certificate for {{ $labels.domain }} ({{ $labels.source }}) will expire in {{ $value }} days"
+          runbook_url: "https://wiki.company.com/runbooks/cert-expiring"
+
+      - alert: CertificateExpired
+        expr: cert_expire_days <= 0
+        for: 0m
+        labels:
+          severity: critical
+          team: platform
+          environment: production
+        annotations:
+          summary: "Certificate expired"
+          description: "Certificate for {{ $labels.domain }} ({{ $labels.source }}) has expired"
+          runbook_url: "https://wiki.company.com/runbooks/cert-expired"
+
+      - alert: CertificateCheckFailed
+        expr: cert_status == 0
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          environment: production
+        annotations:
+          summary: "Certificate check failed"
+          description: "Failed to check certificate for {{ $labels.domain }} ({{ $labels.source }})"
+          runbook_url: "https://wiki.company.com/runbooks/cert-check-failed"
+
+      - alert: CertMonitorDown
+        expr: up{job="cert-monitor"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          environment: production
+        annotations:
+          summary: "Cert Monitor is down"
+          description: "Cert Monitor has been down for more than 5 minutes"

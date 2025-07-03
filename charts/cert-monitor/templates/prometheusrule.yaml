@@ -1,0 +1,26 @@
+{{- if .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "cert-monitor.fullname" . }}
+  labels:
+    {{- include "cert-monitor.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+  - name: cert-monitor
+    rules:
+    {{- range .Values.monitoring.prometheusRule.rules }}
+    - alert: {{ .alert }}
+      expr: {{ .expr }}
+      {{- if .for }}
+      for: {{ .for }}
+      {{- end }}
+      labels:
+        {{- toYaml .labels | nindent 8 }}
+      annotations:
+        {{- toYaml .annotations | nindent 8 }}
+    {{- end }}
+{{- end }}
