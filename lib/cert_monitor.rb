@@ -10,6 +10,7 @@ require 'cert_monitor/cert_client'
 require 'cert_monitor/checker'
 require 'cert_monitor/exporter'
 require 'cert_monitor/nacos_client'
+require 'cert_monitor/local_cert_checker'
 require 'cert_monitor/application'
 
 module CertMonitor

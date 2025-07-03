@@ -25,7 +25,11 @@ module CertMonitor
         cert = ssl_client.peer_cert
 
         expire_days = days_until_expire(cert)
-        @logger.info "Domain #{domain}: #{expire_days} days until expiry"
+        is_wildcard = check_wildcard_cert(cert)
+        san_domains = extract_san_domains(cert)
+
+        @logger.info "Domain #{domain}: #{expire_days} days until expiry (#{is_wildcard ? 'Wildcard' : 'Single Domain'} Certificate)"
+        @logger.debug "SAN domains: #{san_domains.join(', ')}" unless san_domains.empty?
 
         {
           domain: domain,
@@ -34,7 +38,9 @@ module CertMonitor
           issuer: cert.issuer.to_s,
           subject: cert.subject.to_s,
           valid_from: cert.not_before,
-          valid_to: cert.not_after
+          valid_to: cert.not_after,
+          is_wildcard: is_wildcard,
+          san_domains: san_domains
         }
       rescue StandardError => e
         @logger.error "Failed to check domain #{domain}: #{e.message}"
@@ -56,6 +62,30 @@ module CertMonitor
     # @return [Integer] Number of days until expiration
     def days_until_expire(cert)
       ((cert.not_after - Time.now) / (24 * 60 * 60)).to_i
+    end
+
+    # Check if certificate is a wildcard certificate
+    # @param cert [OpenSSL::X509::Certificate] The SSL certificate
+    # @return [Boolean] true if wildcard certificate
+    def check_wildcard_cert(cert)
+      # 检查主域名是否为泛域名
+      common_name = cert.subject.to_a.find { |name, _, _| name == 'CN' }&.at(1)
+      return true if common_name&.start_with?('*.')
+
+      # 检查SAN中是否包含泛域名
+      san_domains = extract_san_domains(cert)
+      san_domains.any? { |domain| domain.start_with?('*.') }
+    end
+
+    # Extract Subject Alternative Names from certificate
+    # @param cert [OpenSSL::X509::Certificate] The SSL certificate
+    # @return [Array<String>] List of SAN domains
+    def extract_san_domains(cert)
+      cert.extensions.find { |ext| ext.oid == 'subjectAltName' }&.value.to_s
+          .split(',')
+          .map(&:strip)
+          .select { |name| name.start_with?('DNS:') }
+          .map { |name| name.gsub('DNS:', '') } || []
     end
   end
 end

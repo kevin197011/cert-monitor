@@ -6,6 +6,8 @@ module CertMonitor
   # Domain certificate checker class
   # Handles concurrent domain certificate checking and metrics updates
   class Checker
+    CERT_SOURCE = 'remote'
+
     def initialize
       @config = Config
       @logger = Logger.create('Checker')
@@ -24,10 +26,15 @@ module CertMonitor
 
         # 更新指标
         if result[:status] == :ok
-          Exporter.update_cert_status(domain, true)
-          Exporter.update_expire_days(domain, result[:expire_days])
+          Exporter.update_cert_status(domain, true, source: CERT_SOURCE)
+          Exporter.update_expire_days(domain, result[:expire_days], source: CERT_SOURCE)
+          Exporter.update_cert_type(domain, result[:is_wildcard], source: CERT_SOURCE)
+          Exporter.update_san_count(domain, result[:san_domains].length, source: CERT_SOURCE)
+
+          cert_type = result[:is_wildcard] ? 'Wildcard' : 'Single Domain'
+          @logger.info "Domain #{domain}: #{cert_type} certificate with #{result[:san_domains].length} SANs"
         else
-          Exporter.update_cert_status(domain, false)
+          Exporter.update_cert_status(domain, false, source: CERT_SOURCE)
         end
 
         result
@@ -35,11 +42,12 @@ module CertMonitor
         @logger.error "Failed to check domain #{domain}: #{e.message}"
 
         # 更新错误状态指标
-        Exporter.update_cert_status(domain, false)
+        Exporter.update_cert_status(domain, false, source: CERT_SOURCE)
         {
           domain: domain,
           status: :error,
-          error: e.message
+          error: e.message,
+          source: CERT_SOURCE
         }
       ensure
         @semaphore.release

@@ -1,1 +1,24 @@
+.DS_Store
 *.gem
+*.rbc
+/.config
+/coverage/
+/InstalledFiles
+/pkg/
+/spec/reports/
+/spec/examples.txt
+/test/tmp/
+/test/version_tmp/
+/tmp/
+
+# 证书文件忽略规则
+/certs/**/*.pem
+/certs/**/*.key
+/certs/**/*.crt
+/certs/**/*.p12
+/certs/**/*.pfx
+/certs/**/*.jks
+
+# 但是保留目录结构和README
+!/certs/**/
+!/certs/README.md
