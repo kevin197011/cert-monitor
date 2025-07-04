@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'logger'
-
 module CertMonitor
   # Logger management class
   # Provides unified logging functionality across the application
@@ -20,6 +18,7 @@ module CertMonitor
 
       def update_all_level(level)
         @current_level = level
+        @loggers ||= []
         @loggers.each { |logger| logger.level = level }
       end
 
@@ -32,6 +31,8 @@ module CertMonitor
 
       def current_level
         @current_level ||= ::Logger.const_get((Config.log_level || 'info').upcase)
+      rescue NameError
+        @current_level ||= ::Logger::INFO
       end
     end
   end

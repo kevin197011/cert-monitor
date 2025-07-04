@@ -1,18 +1,36 @@
 # frozen_string_literal: true
 
-# Main entry point for the cert-monitor gem
-# This file loads all required components and sets up the application
+# 集中加载所有外部gem依赖
+require 'logger'
+require 'yaml'
+require 'json'
+require 'net/http'
+require 'uri'
+require 'digest'
+require 'dotenv'
+require 'openssl'
+require 'socket'
+require 'find'
+require 'concurrent'
+require 'prometheus/client'
+require 'prometheus/client/formats/text'
+require 'sinatra/base'
+require 'rack'
+require 'rack/handler/puma'
 
-require 'cert_monitor/version'
-require 'cert_monitor/config'
-require 'cert_monitor/logger'
-require 'cert_monitor/cert_client'
-require 'cert_monitor/checker'
-require 'cert_monitor/exporter'
-require 'cert_monitor/nacos_client'
-require 'cert_monitor/local_cert_checker'
-require 'cert_monitor/application'
+# 加载核心模块
+require_relative 'cert_monitor/version'
 
 module CertMonitor
   class Error < StandardError; end
+
+  # 惰性加载子模块
+  autoload :Config, 'cert_monitor/config'
+  autoload :Logger, 'cert_monitor/logger'
+  autoload :NacosClient, 'cert_monitor/nacos_client'
+  autoload :RemoteCertClient, 'cert_monitor/remote_cert_client'
+  autoload :Checker, 'cert_monitor/checker'
+  autoload :LocalCertClient, 'cert_monitor/local_cert_client'
+  autoload :Exporter, 'cert_monitor/exporter'
+  autoload :Application, 'cert_monitor/application'
 end
