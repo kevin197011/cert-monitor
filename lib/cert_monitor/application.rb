@@ -205,12 +205,21 @@ module CertMonitor
     def start_exporter
       @logger.debug 'Starting metrics exporter...'
       @logger.debug "Metrics port: #{Config.metrics_port}"
-      @logger.debug 'Binding to 0.0.0.0 for external access'
+      @logger.debug 'Binding to 0.0.0.0 (IPv4 only) for external access'
 
       # 设置 Sinatra 服务器选项
       Exporter.set :port, Config.metrics_port
-      @logger.info "Starting metrics server on port #{Config.metrics_port}"
-      Exporter.run! host: '0.0.0.0'
+      Exporter.set :bind, '0.0.0.0'
+
+      # 更新 Puma 服务器设置，确保只绑定 IPv4
+      Exporter.set :server_settings, {
+        Host: '0.0.0.0',
+        Port: Config.metrics_port,
+        binds: ["tcp://0.0.0.0:#{Config.metrics_port}"]
+      }
+
+      @logger.info "Starting metrics server on http://0.0.0.0:#{Config.metrics_port}"
+      Exporter.run! host: '0.0.0.0', port: Config.metrics_port
     end
   end
 end

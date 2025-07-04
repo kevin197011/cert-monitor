@@ -4,6 +4,24 @@ module CertMonitor
   # Prometheus metrics exporter class
   # Handles metrics collection and HTTP endpoint for Prometheus scraping
   class Exporter < Sinatra::Base
+    # Configure Sinatra server settings for version 3.x
+    configure do
+      set :server, :puma
+      set :bind, '0.0.0.0'
+      set :environment, :production
+      set :logging, false
+      set :dump_errors, false
+      set :raise_errors, false
+      set :quiet, true
+
+      # Puma specific settings for IPv4 only
+      set :server_settings, {
+        Host: '0.0.0.0',
+        Port: nil, # Will be set dynamically
+        binds: ['tcp://0.0.0.0:0'] # Force IPv4 only
+      }
+    end
+
     # Initialize Prometheus metrics
     @@prometheus = Prometheus::Client.registry
 

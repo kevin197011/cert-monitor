@@ -22,12 +22,12 @@ Gem::Specification.new do |spec|
   spec.require_paths = ['lib']
 
   # Runtime dependencies
-  spec.add_dependency 'concurrent-ruby', '~> 1.1'
+  spec.add_dependency 'concurrent-ruby', '~> 1.2'
   spec.add_dependency 'dotenv', '~> 2.8'
   spec.add_dependency 'prometheus-client', '~> 4.2'
-  spec.add_dependency 'puma', '~> 6.0'
+  spec.add_dependency 'puma', '~> 6.4'
   spec.add_dependency 'rake', '~> 13.0'
-  spec.add_dependency 'sinatra', '~> 2.2'
+  spec.add_dependency 'sinatra', '~> 3.1'
 
   # Development dependencies
   spec.add_development_dependency 'bundler', '~> 2.0'
