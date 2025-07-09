@@ -15,6 +15,7 @@ module CertMonitor
       @logger = Logger.create('System')
       @logger.level = ::Logger::INFO # Initial INFO level, updated from config later
       @logger.debug 'Application instance created'
+      @previous_check_results = nil
     end
 
     def start
@@ -32,6 +33,7 @@ module CertMonitor
       setup_configuration
       setup_logger
       setup_components
+      setup_pid_file
       setup_nacos_callback
       start_nacos_client
       perform_initial_checks
@@ -224,6 +226,12 @@ module CertMonitor
 
       log_check_success(summary, duration)
       log_check_details(summary, results)
+
+      # Check for domain/certificate reduction and restart Puma if needed
+      check_and_restart_if_needed(results)
+
+      # Store current results for next comparison
+      @previous_check_results = results
     end
 
     def log_check_success(summary, duration)
@@ -237,6 +245,69 @@ module CertMonitor
       @logger.debug "Check timestamp: #{summary[:check_timestamp]}"
       @logger.debug "Check duration from summary: #{summary[:check_duration]}s"
       @logger.debug "Check had errors: #{results[:error][:message]}" if results[:error]
+    end
+
+    def check_and_restart_if_needed(results)
+      require_relative 'utils'
+
+      return unless @previous_check_results
+
+      # Check domain reduction
+      current_domains = extract_domains_from_results(results)
+      previous_domains = extract_domains_from_results(@previous_check_results)
+
+      if current_domains.length < previous_domains.length
+        @logger.info "Domain reduction detected. Current: #{current_domains.length}, Previous: #{previous_domains.length}"
+        @logger.info "Reduced domains: #{previous_domains - current_domains}"
+        @logger.info 'Puma restart triggered due to domain reduction' if Utils.restart_puma
+        return
+      end
+
+      # Check certificate reduction
+      current_total = count_total_certificates(results)
+      previous_total = count_total_certificates(@previous_check_results)
+
+      if current_total < previous_total
+        @logger.info "Certificate reduction detected. Current: #{current_total}, Previous: #{previous_total}"
+        @logger.info 'Puma restart triggered due to certificate reduction' if Utils.restart_puma
+      end
+    rescue StandardError => e
+      @logger.error "Failed to check for restart conditions: #{e.message}"
+      @logger.debug "Restart check error details: #{e.class} - #{e.message}"
+    end
+
+    # Extract domain list from certificate check results
+    def extract_domains_from_results(results)
+      domains = []
+
+      # Extract from remote results
+      if results[:remote].is_a?(Array)
+        results[:remote].each do |result|
+          domains << result[:domain] if result[:domain]
+        end
+      end
+
+      # Extract from local results
+      if results[:local].is_a?(Array)
+        results[:local].each do |result|
+          domains << result[:domain] if result[:domain]
+        end
+      end
+
+      domains.uniq
+    end
+
+    # Calculate total number of certificates from results
+    def count_total_certificates(results)
+      total = 0
+
+      # Count remote certificates
+      total += results[:remote].length if results[:remote].is_a?(Array)
+
+      # Count local certificates
+      total += results[:local].length if results[:local].is_a?(Array)
+
+      total
     end
 
     def handle_check_error(error, start_time)
@@ -321,6 +392,17 @@ module CertMonitor
     def start_exporter_server
       @logger.info "Starting metrics server on http://#{HOST_BIND_ADDRESS}:#{Config.metrics_port}"
       Exporter.run! host: HOST_BIND_ADDRESS, port: Config.metrics_port
+    end
+
+    def setup_pid_file
+      require_relative 'utils'
+      if Utils.write_pid_file
+        @logger.debug 'PID file written successfully'
+      else
+        @logger.warn 'Failed to write PID file - Puma restart functionality may not work'
+      end
+    rescue StandardError => e
+      @logger.error "Failed to setup PID file: #{e.message}"
     end
   end
 end
