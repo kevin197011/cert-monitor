@@ -22,3 +22,4 @@
 # 但是保留目录结构和README
 !/certs/**/
 !/certs/README.md
+.cursor

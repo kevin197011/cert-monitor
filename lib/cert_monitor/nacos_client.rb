@@ -79,7 +79,9 @@ module CertMonitor
         current_md5 = Digest::MD5.hexdigest(yaml_content)
         @logger.info "Content MD5: #{current_md5}, Last MD5: #{@last_md5}"
 
-        if @last_md5 != current_md5
+        if @last_md5 == current_md5
+          @logger.info 'Configuration unchanged (same MD5)'
+        else
           @last_md5 = current_md5
           begin
             config_data = YAML.safe_load(yaml_content)
@@ -126,8 +128,6 @@ module CertMonitor
             @logger.debug "Raw YAML content: #{yaml_content}"
             raise "YAML parsing failed: #{e.message}"
           end
-        else
-          @logger.info 'Configuration unchanged (same MD5)'
         end
       else
         @logger.error "Failed to fetch configuration: HTTP #{response.code} - #{response.body}"

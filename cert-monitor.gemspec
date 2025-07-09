@@ -15,6 +15,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = Gem::Requirement.new('>= 2.6.0')
 
   spec.metadata['allowed_push_host'] = "TODO: Set to 'http://mygemserver.com'"
+  spec.metadata['rubygems_mfa_required'] = 'true'
 
   spec.files         = Dir.glob('{bin,lib}/**/*') + %w[README.md]
   spec.bindir        = 'bin'

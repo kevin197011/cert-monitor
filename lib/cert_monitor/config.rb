@@ -143,12 +143,12 @@ module CertMonitor
         logger.debug 'Loading Nacos connection configuration from environment'
 
         # Load Nacos connection info from environment
-        @nacos_addr = ENV['NACOS_ADDR']
-        @nacos_namespace = ENV['NACOS_NAMESPACE']
+        @nacos_addr = ENV.fetch('NACOS_ADDR', nil)
+        @nacos_namespace = ENV.fetch('NACOS_NAMESPACE', nil)
         @nacos_group = ENV['NACOS_GROUP'] || 'DEFAULT_GROUP'
         @nacos_data_id = ENV['NACOS_DATA_ID'] || 'cert-monitor-config'
-        @nacos_username = ENV['NACOS_USERNAME']
-        @nacos_password = ENV['NACOS_PASSWORD']
+        @nacos_username = ENV.fetch('NACOS_USERNAME', nil)
+        @nacos_password = ENV.fetch('NACOS_PASSWORD', nil)
 
         logger.debug "Nacos connection config: addr=#{@nacos_addr}, namespace=#{@nacos_namespace}, group=#{@nacos_group}, data_id=#{@nacos_data_id}"
         logger.debug "Nacos authentication: username=#{@nacos_username ? 'set' : 'not set'}, password=#{@nacos_password ? 'set' : 'not set'}"

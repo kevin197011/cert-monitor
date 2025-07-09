@@ -4,7 +4,7 @@ require 'time'
 require 'bundler/gem_tasks'
 require 'rspec/core/rake_task'
 
-task default: %w[push]
+task default: %w[run]
 
 task :install do
   system 'gem uninstall cert-monitor -aIx'
@@ -20,12 +20,8 @@ task :push do
   system 'git push origin main'
 end
 
-task :docker do
+task :run do
   system 'export COMPOSE_BAKE=true'
   system 'docker compose up --build -d'
   system 'docker compose logs -f'
 end
-
-RSpec::Core::RakeTask.new(:spec)
-
-task default: :spec

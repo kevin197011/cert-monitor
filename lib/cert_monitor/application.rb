@@ -3,11 +3,17 @@
 module CertMonitor
   # Main application class that handles initialization and startup
   class Application
+    # Constants for configuration and timing
+    DEFAULT_LOG_LEVEL = 'info'
+    MIN_ERROR_SLEEP_DURATION = 10
+    HOST_BIND_ADDRESS = '0.0.0.0'
+    PROTOCOL_TCP = 'tcp'
+
     attr_reader :logger, :nacos_client, :checker
 
     def initialize
       @logger = Logger.create('System')
-      @logger.level = ::Logger::INFO # 初始设置为 INFO，后续从配置更新
+      @logger.level = ::Logger::INFO # Initial INFO level, updated from config later
       @logger.debug 'Application instance created'
     end
 
@@ -15,28 +21,30 @@ module CertMonitor
       @logger.info 'Starting cert-monitor application...'
       @logger.debug 'Beginning application startup sequence'
 
+      startup_sequence
+    rescue StandardError => e
+      handle_startup_error(e)
+    end
+
+    private
+
+    def startup_sequence
       setup_configuration
       setup_logger
       setup_components
       setup_nacos_callback
       start_nacos_client
-
-      # 首次同步检查
       perform_initial_checks
-
-      # 启动异步检查线程
       start_checker_thread
-
-      # 启动指标服务器
       start_exporter
-    rescue StandardError => e
-      @logger.error "Startup failed: #{e.message}"
-      @logger.error "Startup error details: #{e.class} - #{e.message}"
-      @logger.error "Startup error backtrace: #{e.backtrace.join("\n")}"
-      exit 1
     end
 
-    private
+    def handle_startup_error(error)
+      @logger.error "Startup failed: #{error.message}"
+      @logger.error "Startup error details: #{error.class} - #{error.message}"
+      @logger.error "Startup error backtrace: #{error.backtrace.join("\n")}"
+      exit 1
+    end
 
     def setup_configuration
       @logger.debug 'Loading configuration...'
@@ -44,31 +52,58 @@ module CertMonitor
 
       Config.load
 
+      log_configuration_load_time(start_time)
+      log_configuration_source
+    end
+
+    def log_configuration_load_time(start_time)
       duration = (Time.now - start_time).round(3)
       @logger.debug "Configuration loaded in #{duration}s"
+    end
+
+    def log_configuration_source
       @logger.debug "Nacos enabled: #{Config.nacos_enabled?}"
-      @logger.debug "Configuration source: #{Config.nacos_enabled? ? 'Nacos' : 'Local file'}"
+      source = Config.nacos_enabled? ? 'Nacos' : 'Local file'
+      @logger.debug "Configuration source: #{source}"
     end
 
     def setup_logger
       @logger.debug 'Setting up logger...'
 
-      # 从配置中读取日志级别
-      log_level = (Config.log_level || 'info').upcase
+      log_level = determine_log_level
+      update_logger_level(log_level)
+      log_current_configuration
+      @logger.debug "Logger setup completed with level: #{log_level}"
+    end
+
+    def determine_log_level
+      (Config.log_level || DEFAULT_LOG_LEVEL).upcase
+    end
+
+    def update_logger_level(log_level)
       @logger.debug "Setting log level to: #{log_level}"
       Logger.update_all_level(::Logger.const_get(log_level))
+    end
 
-      # 输出当前配置
+    def log_current_configuration
       @logger.info 'Current configuration:'
-      @logger.info "- Domains: #{Config.domains.join(', ')}"
-      @logger.info "- Check interval: #{Config.check_interval}s"
-      @logger.info "- Connect timeout: #{Config.connect_timeout}s"
-      @logger.info "- Expire threshold days: #{Config.threshold_days}"
-      @logger.info "- Max concurrent checks: #{Config.max_concurrent_checks}"
-      @logger.info "- Metrics port: #{Config.metrics_port}"
-      @logger.info "- Log level: #{Config.log_level}"
+      log_configuration_items
+    end
 
-      @logger.debug "Logger setup completed with level: #{log_level}"
+    def log_configuration_items
+      config_items = [
+        ['Domains', Config.domains.join(', ')],
+        ['Check interval', "#{Config.check_interval}s"],
+        ['Connect timeout', "#{Config.connect_timeout}s"],
+        ['Expire threshold days', Config.threshold_days.to_s],
+        ['Max concurrent checks', Config.max_concurrent_checks.to_s],
+        ['Metrics port', Config.metrics_port.to_s],
+        ['Log level', Config.log_level.to_s]
+      ]
+
+      config_items.each do |key, value|
+        @logger.info "- #{key}: #{value}"
+      end
     end
 
     def setup_components
@@ -77,40 +112,62 @@ module CertMonitor
 
       @checker = Checker.new
 
+      log_component_initialization_time(start_time)
+    end
+
+    def log_component_initialization_time(start_time)
       duration = (Time.now - start_time).round(3)
       @logger.debug "Components initialized in #{duration}s"
       @logger.debug 'Checker coordinator ready'
     end
 
     def setup_nacos_callback
-      # 设置配置变化回调
       return unless Config.nacos_enabled?
 
       @logger.debug 'Setting up Nacos configuration change callback...'
-      @config_change_callback = proc do
+      @config_change_callback = create_config_change_callback
+      @logger.debug 'Nacos callback configured'
+    end
+
+    def create_config_change_callback
+      proc do
         @logger.info 'Configuration changed! Triggering immediate certificate checks...'
         @logger.debug 'Nacos configuration change callback triggered'
         perform_immediate_checks
       end
-      @logger.debug 'Nacos callback configured'
     end
 
     def start_nacos_client
       if Config.nacos_enabled?
-        @logger.info 'Starting Nacos config listener...'
-        @logger.debug "Nacos server: #{Config.nacos_addr}"
-        @logger.debug "Nacos namespace: #{Config.nacos_namespace}"
-        @logger.debug "Nacos group: #{Config.nacos_group}"
-        @logger.debug "Nacos data ID: #{Config.nacos_data_id}"
-
-        @nacos_client = NacosClient.new
-        @nacos_client.on_config_change_callback = @config_change_callback
-        @nacos_client.start_listening
-        @logger.debug 'Nacos client started and listening for configuration changes'
+        start_nacos_client_with_config
       else
-        @logger.info 'Nacos not configured, skipping Nacos client startup'
-        @logger.debug 'Using local configuration mode'
+        log_nacos_disabled
       end
+    end
+
+    def start_nacos_client_with_config
+      @logger.info 'Starting Nacos config listener...'
+      log_nacos_configuration
+      initialize_nacos_client
+    end
+
+    def log_nacos_configuration
+      @logger.debug "Nacos server: #{Config.nacos_addr}"
+      @logger.debug "Nacos namespace: #{Config.nacos_namespace}"
+      @logger.debug "Nacos group: #{Config.nacos_group}"
+      @logger.debug "Nacos data ID: #{Config.nacos_data_id}"
+    end
+
+    def initialize_nacos_client
+      @nacos_client = NacosClient.new
+      @nacos_client.on_config_change_callback = @config_change_callback
+      @nacos_client.start_listening
+      @logger.debug 'Nacos client started and listening for configuration changes'
+    end
+
+    def log_nacos_disabled
+      @logger.info 'Nacos not configured, skipping Nacos client startup'
+      @logger.debug 'Using local configuration mode'
     end
 
     def perform_initial_checks
@@ -120,86 +177,122 @@ module CertMonitor
     end
 
     def perform_immediate_checks
-      # 配置更新后立即执行的检查
       @logger.info 'Executing immediate certificate checks due to configuration change...'
       @logger.debug 'Configuration change triggered immediate check'
 
-      # 异步执行检查，避免阻塞配置更新
+      execute_async_check
+    end
+
+    def execute_async_check
       Thread.new do
         @logger.debug 'Starting immediate check thread'
         perform_comprehensive_check
         @logger.info 'Immediate certificate checks completed'
         @logger.debug 'Immediate check thread finished'
       rescue StandardError => e
-        @logger.error "Immediate certificate check failed: #{e.message}"
-        @logger.debug "Immediate check error details: #{e.class} - #{e.message}"
-        @logger.error e.backtrace.join("\n")
+        handle_immediate_check_error(e)
       end
+    end
+
+    def handle_immediate_check_error(error)
+      @logger.error "Immediate certificate check failed: #{error.message}"
+      @logger.debug "Immediate check error details: #{error.class} - #{error.message}"
+      @logger.error error.backtrace.join("\n")
     end
 
     def perform_comprehensive_check
       @logger.debug 'Creating comprehensive check promise'
       start_time = Time.now
 
+      create_check_promise(start_time)
+    end
+
+    def create_check_promise(start_time)
       Concurrent::Promise.execute do
         @logger.debug 'Comprehensive check promise started'
         @checker.check_all_certificates
       end.on_success do |results|
-        duration = (Time.now - start_time).round(2)
-        summary = results[:summary]
-
-        @logger.info 'Comprehensive certificate check completed:'
-        @logger.info "- Remote certificates: #{summary[:successful_remote]}/#{summary[:total_remote]} successful"
-        @logger.info "- Local certificates: #{summary[:successful_local]}/#{summary[:total_local]} successful"
-        @logger.debug "Comprehensive check completed in #{duration}s"
-
-        # 记录详细统计信息
-        @logger.debug "Check timestamp: #{summary[:check_timestamp]}"
-        @logger.debug "Check duration from summary: #{summary[:check_duration]}s"
-
-        @logger.debug "Check had errors: #{results[:error][:message]}" if results[:error]
+        handle_check_success(results, start_time)
       end.on_error do |error|
-        duration = (Time.now - start_time).round(2)
-        @logger.error "Comprehensive certificate check failed: #{error.message}"
-        @logger.debug "Comprehensive check failed after #{duration}s"
-        @logger.debug "Check error details: #{error.class} - #{error.message}"
-        @logger.error error.backtrace.join("\n")
+        handle_check_error(error, start_time)
       end
+    end
+
+    def handle_check_success(results, start_time)
+      duration = (Time.now - start_time).round(2)
+      summary = results[:summary]
+
+      log_check_success(summary, duration)
+      log_check_details(summary, results)
+    end
+
+    def log_check_success(summary, duration)
+      @logger.info 'Comprehensive certificate check completed:'
+      @logger.info "- Remote certificates: #{summary[:successful_remote]}/#{summary[:total_remote]} successful"
+      @logger.info "- Local certificates: #{summary[:successful_local]}/#{summary[:total_local]} successful"
+      @logger.debug "Comprehensive check completed in #{duration}s"
+    end
+
+    def log_check_details(summary, results)
+      @logger.debug "Check timestamp: #{summary[:check_timestamp]}"
+      @logger.debug "Check duration from summary: #{summary[:check_duration]}s"
+      @logger.debug "Check had errors: #{results[:error][:message]}" if results[:error]
+    end
+
+    def handle_check_error(error, start_time)
+      duration = (Time.now - start_time).round(2)
+      @logger.error "Comprehensive certificate check failed: #{error.message}"
+      @logger.debug "Comprehensive check failed after #{duration}s"
+      @logger.debug "Check error details: #{error.class} - #{error.message}"
+      @logger.error error.backtrace.join("\n")
     end
 
     def start_checker_thread
       @logger.info 'Starting certificate checker thread...'
       @logger.debug "Check interval: #{Config.check_interval}s"
 
+      create_checker_thread
+      @logger.debug 'Checker thread creation completed'
+    end
+
+    def create_checker_thread
       Thread.new do
         @logger.debug 'Checker thread started'
-
-        # 等待一个检查周期后开始异步检查
-        @logger.debug "Waiting #{Config.check_interval}s before first scheduled check"
-        sleep Config.check_interval
-
-        loop do
-          @logger.info 'Running scheduled certificate checks...'
-          @logger.debug 'Scheduled check triggered'
-
-          Time.now
-          perform_comprehensive_check
-
-          # 等待下一个检查周期
-          @logger.debug "Scheduled check initiated, waiting #{Config.check_interval}s for next check"
-          sleep Config.check_interval
-        rescue StandardError => e
-          @logger.error "Checker thread error: #{e.message}"
-          @logger.debug "Checker thread error details: #{e.class} - #{e.message}"
-          @logger.error e.backtrace.join("\n")
-
-          sleep_duration = [Config.check_interval, 10].max
-          @logger.debug "Sleeping #{sleep_duration}s after error before retry"
-          sleep sleep_duration
-        end
+        wait_for_first_check
+        run_checker_loop
       end
+    end
 
-      @logger.debug 'Checker thread creation completed'
+    def wait_for_first_check
+      @logger.debug "Waiting #{Config.check_interval}s before first scheduled check"
+      sleep Config.check_interval
+    end
+
+    def run_checker_loop
+      loop do
+        @logger.info 'Running scheduled certificate checks...'
+        @logger.debug 'Scheduled check triggered'
+
+        perform_comprehensive_check
+        wait_for_next_check
+      rescue StandardError => e
+        handle_checker_thread_error(e)
+      end
+    end
+
+    def wait_for_next_check
+      @logger.debug "Scheduled check initiated, waiting #{Config.check_interval}s for next check"
+      sleep Config.check_interval
+    end
+
+    def handle_checker_thread_error(error)
+      @logger.error "Checker thread error: #{error.message}"
+      @logger.debug "Checker thread error details: #{error.class} - #{error.message}"
+      @logger.error error.backtrace.join("\n")
+
+      sleep_duration = [Config.check_interval, MIN_ERROR_SLEEP_DURATION].max
+      @logger.debug "Sleeping #{sleep_duration}s after error before retry"
+      sleep sleep_duration
     end
 
     def start_exporter
@@ -207,19 +300,27 @@ module CertMonitor
       @logger.debug "Metrics port: #{Config.metrics_port}"
       @logger.debug 'Binding to 0.0.0.0 (IPv4 only) for external access'
 
-      # 设置 Sinatra 服务器选项
+      configure_exporter_settings
+      start_exporter_server
+    end
+
+    def configure_exporter_settings
       Exporter.set :port, Config.metrics_port
-      Exporter.set :bind, '0.0.0.0'
+      Exporter.set :bind, HOST_BIND_ADDRESS
+      Exporter.set :server_settings, create_server_settings
+    end
 
-      # 更新 Puma 服务器设置，确保只绑定 IPv4
-      Exporter.set :server_settings, {
-        Host: '0.0.0.0',
+    def create_server_settings
+      {
+        Host: HOST_BIND_ADDRESS,
         Port: Config.metrics_port,
-        binds: ["tcp://0.0.0.0:#{Config.metrics_port}"]
+        binds: ["#{PROTOCOL_TCP}://#{HOST_BIND_ADDRESS}:#{Config.metrics_port}"]
       }
+    end
 
-      @logger.info "Starting metrics server on http://0.0.0.0:#{Config.metrics_port}"
-      Exporter.run! host: '0.0.0.0', port: Config.metrics_port
+    def start_exporter_server
+      @logger.info "Starting metrics server on http://#{HOST_BIND_ADDRESS}:#{Config.metrics_port}"
+      Exporter.run! host: HOST_BIND_ADDRESS, port: Config.metrics_port
     end
   end
 end
