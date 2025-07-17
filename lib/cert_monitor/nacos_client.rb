@@ -187,8 +187,10 @@ module CertMonitor
       end
     end
 
-    def log_configuration_update(_config_data)
+    def log_configuration_update(config_data)
       @logger.info 'Configuration updated successfully'
+      @logger.info "Domains: #{config_data['domains'].inspect}"
+      @logger.info "Settings: #{config_data['settings'].inspect}"
       @logger.debug "Current configuration: metrics_port=#{@config.metrics_port}, check_interval=#{@config.check_interval}s"
       @logger.debug "Monitored domains: #{@config.domains.inspect}"
     end

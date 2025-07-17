@@ -234,7 +234,7 @@ module CertMonitor
     end
 
     def handle_successful_domain(cert_data)
-      @logger.info "Successfully processed domain: #{cert_data[:domain]}"
+      @logger.info "Successfully processed domain: #{cert_data[:domain]} (expire in #{cert_data[:expire_days]} days, type: #{cert_data[:is_wildcard] ? 'Wildcard' : 'Single'})"
       @logger.debug "Domain #{cert_data[:domain]} check result: #{cert_data[:expire_days]} days remaining"
 
       update_prometheus_metrics(cert_data)
@@ -243,6 +243,7 @@ module CertMonitor
 
     def handle_failed_domain(domain, cert_data)
       error_msg = cert_data ? cert_data[:error] : 'Unknown error'
+      @logger.info "Domain check failed: #{domain}, reason: #{error_msg}"
       @logger.error "Failed to check domain #{domain}: #{error_msg}"
       @logger.debug "Updating failed status for domain: #{domain}"
       Exporter.update_cert_status(domain, false, source: CERT_SOURCE)

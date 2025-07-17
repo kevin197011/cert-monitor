@@ -146,7 +146,7 @@ module CertMonitor
     end
 
     def handle_successful_certificate(cert_data)
-      @logger.info "Successfully processed certificate: #{cert_data[:domain]}"
+      @logger.info "Successfully processed certificate: #{cert_data[:domain]} (expire in #{cert_data[:expire_days]} days, type: #{cert_data[:is_wildcard] ? 'Wildcard' : 'Single'})"
       @logger.debug "Certificate #{cert_data[:domain]} check result: #{cert_data[:expire_days]} days remaining"
 
       update_prometheus_metrics(cert_data)
@@ -154,8 +154,9 @@ module CertMonitor
     end
 
     def handle_failed_certificate(path)
-      @logger.error "Failed to process certificate file: #{path}"
       domain = extract_domain_from_path(path)
+      @logger.info "Certificate check failed: #{domain}, file: #{path}"
+      @logger.error "Failed to process certificate file: #{path}"
       @logger.debug "Updating failed status for local certificate: #{domain}"
       Exporter.update_cert_status(domain, false, source: CERT_SOURCE)
     end

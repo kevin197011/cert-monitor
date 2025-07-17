@@ -34,11 +34,13 @@ module CertMonitor
       @logger.debug 'Creating concurrent promises for remote and local checks'
 
       # 并发执行远程和本地检查
+      @logger.info 'Starting remote certificate check...'
       remote_promise = Concurrent::Promise.execute do
         @logger.debug 'Starting remote certificate check promise'
         @remote_cert_client.check_all_domains
       end
 
+      @logger.info 'Starting local certificate check...'
       local_promise = Concurrent::Promise.execute do
         @logger.debug 'Starting local certificate check promise'
         @local_cert_client.scan_all_certs
@@ -48,7 +50,9 @@ module CertMonitor
       begin
         @logger.debug 'Waiting for remote and local certificate checks to complete...'
         results[:remote] = remote_promise.value!
+        @logger.info "Remote certificate check finished, got #{results[:remote].length} results"
         results[:local] = local_promise.value!
+        @logger.info "Local certificate check finished, got #{results[:local].length} results"
 
         @logger.debug "Remote check returned #{results[:remote].length} results"
         @logger.debug "Local check returned #{results[:local].length} results"

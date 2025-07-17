@@ -26,6 +26,7 @@ module CertMonitor
       end
 
       Process.kill('USR2', pid)
+      logger.info "Puma restart signal sent to pid: #{pid}"
       true
     rescue Errno::ESRCH
       logger.warn "No Puma process found with pid: #{pid}"
@@ -42,6 +43,7 @@ module CertMonitor
       require 'fileutils'
       FileUtils.mkdir_p(File.dirname(pidfile))
       File.write(pidfile, Process.pid)
+      logger.info "Wrote pid #{Process.pid} to file: #{pidfile}"
       true
     rescue StandardError => e
       logger.error "Failed to write pid file: #{e.class} - #{e.message}"
