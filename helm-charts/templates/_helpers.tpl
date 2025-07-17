@@ -60,3 +60,15 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Create docker registry auth secret
+*/}}
+{{- define "imagePullSecret" }}
+{{- with .Values.harbor }}
+{{- $auth := printf "%s:%s" .username .password | b64enc }}
+{{- $config := dict "auths" (dict .server (dict "username" .username "password" .password "auth" $auth)) }}
+{{- $json := $config | toPrettyJson }}
+{{- $json | b64enc }}
+{{- end }}
+{{- end }}
