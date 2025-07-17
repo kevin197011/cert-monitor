@@ -4,7 +4,7 @@ require 'time'
 require 'bundler/gem_tasks'
 require 'rspec/core/rake_task'
 
-task default: %w[push]
+task default: %w[run]
 
 task :install do
   system 'gem uninstall cert-monitor -aIx'

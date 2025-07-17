@@ -7,19 +7,11 @@ domains:
 
 # 应用设置
 settings:
-  # 日志级别: debug, info, warn, error, fatal
-  log_level: info
-  # 指标端口
-  metrics_port: 9393
-  # 检查间隔（秒）
-  check_interval: 21600
-  # 连接超时（秒）
-  connect_timeout: 10
-  # 证书过期警告天数
-  expire_warning_days: 30
-  # 过期阈值天数
-  threshold_days: 30
-  # Nacos 配置轮询间隔（秒）
-  nacos_poll_interval: 60
-  # 最大并发检查数
-  max_concurrent_checks: 50
+  log_level: info # 日志级别: debug, info, warn, error, fatal
+  metrics_port: 9393 # 指标端口
+  check_interval: 21600 # 检查间隔（秒）
+  connect_timeout: 10 # 连接超时（秒）
+  expire_warning_days: 30 # 证书过期警告天数
+  threshold_days: 30 # 过期阈值天数
+  nacos_poll_interval: 60 # Nacos 配置轮询间隔（秒）
+  max_concurrent_checks: 50 # 最大并发检查数
