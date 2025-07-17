@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "cert-monitor.fullname" -}}
+{{- define "helm-charts.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -55,7 +55,7 @@ Create the name of the service account to use
 */}}
 {{- define "helm-charts.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "cert-monitor.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "helm-charts.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

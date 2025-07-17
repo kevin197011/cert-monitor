@@ -2,23 +2,24 @@
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: {{ include "cert-monitor.fullname" . }}-vs
+  name: {{ include "helm-charts.fullname" . }}-vs
+  namespace: {{ .Values.namespace }}
   labels:
-    {{- include "cert-monitor.labels" . | nindent 4 }}
+    {{- include "helm-charts.labels" . | nindent 4 }}
 spec:
   hosts:
     {{- range .Values.istio.hosts }}
     - {{ . | quote }}
     {{- end }}
   gateways:
-    - {{ include "cert-monitor.fullname" . }}-gateway
+    - {{ include "helm-charts.fullname" . }}-gateway
   http:
     - match:
         - uri:
             prefix: "/"
       route:
         - destination:
-            host: {{ include "cert-monitor.fullname" . }}
+            host: {{ include "helm-charts.fullname" . }}
             port:
               number: {{ .Values.service.port }}
 {{- end }}

@@ -1,15 +1,17 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "cert-monitor.fullname" . }}
+  name: {{ include "helm-charts.fullname" . }}
+  namespace: {{ .Values.namespace }}
   labels:
-    {{- include "cert-monitor.labels" . | nindent 4 }}
+    monitor: "true"
+    {{- include "helm-charts.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.service.type | default "ClusterIP" }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.port }}
+      targetPort: http
       protocol: TCP
       name: http
   selector:
-    {{- include "cert-monitor.selectorLabels" . | nindent 4 }}
+    {{- include "helm-charts.selectorLabels" . | nindent 4 }}

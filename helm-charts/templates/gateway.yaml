@@ -2,9 +2,10 @@
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
-  name: {{ include "cert-monitor.fullname" . }}-gateway
+  name: {{ include "helm-charts.fullname" . }}-gateway
+  namespace: {{ .Values.namespace }}
   labels:
-    {{- include "cert-monitor.labels" . | nindent 4 }}
+    {{- include "helm-charts.labels" . | nindent 4 }}
 spec:
   selector:
     istio: ingressgateway # 可通过 values.yaml 配置 selector

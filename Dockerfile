@@ -11,6 +11,7 @@ COPY cert-monitor.gemspec ./
 COPY lib lib/
 COPY bin bin/
 COPY README.md ./
+COPY certs/ssl /app/certs/ssl/
 
 # Install dependencies and build the gem
 RUN gem build cert-monitor.gemspec && \
